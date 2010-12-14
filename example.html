@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+	<title>TableNav example</title>
+
+	<link rel="stylesheet" href="css/style.css">
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.js"></script>
+	<script src="jquery.tablenav.js"></script>
+</head>
+<body>
+<style>
+.tn_selected_table {
+    background-color: red;
+}
+
+.tn_selected_row {
+	background-color: blue;
+}
+
+.tn_selected_cell {
+    background-color: green;
+}
+
+</style>
+
+<script type="text/javascript">
+$(function() {
+	$('#example').tableNav();
+
+	console.log($.tableNav);
+})
+</script>
+
+<div id="container">
+	<header>
+		<h1>TableNav example</h1>
+	</header>
+
+	<div id="main">
+
+		<table id="example">
+			<thead>
+				<tr>
+					<td>An</td>
+					<td>Example</td>
+					<td>Table</td>
+				</tr>
+			</thead>
+			<tr>
+				<td>Row</td>
+				<td>number</td>
+				<td>1</td>
+			</tr>
+			<tr>
+				<td>Row</td>
+				<td>number</td>
+				<td>2</td>
+			</tr>
+			<tr>
+				<td>Row</td>
+				<td>number</td>
+				<td>3</td>
+			</tr>
+		</table>
+
+	</div>
+
+	<footer>
+
+	</footer>
+</div>
+</body>
+</html>
