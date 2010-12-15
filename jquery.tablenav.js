@@ -6,7 +6,7 @@
 	var defaults = {
 			navigable_class: 'tn_navigable',
 		
-			selectable_attribute: 'tn_selectable',
+			selectable_attribute: 'selectable',
 
 			selected_table_class: 'tn_selected_table',
 			selected_cell_class: 'tn_selected_cell',
@@ -72,27 +72,6 @@
 
 			// out of bounds? flip around and try and find the first accessible row... used when we page up and we're < 20 lines down
 			if (!row && !flipped) {
-
-				// unless we want to move to the next table that is
-				/*if (jump_tables_selection) {
-					if (to < 0) {
-						if (this.move_to_table(-1)) {
-							rows = this.current_table_dom.rows;
-							to = rows.length-1;
-							continue;
-						} else {
-							scroll_to = 'top';
-						}
-					} else if (to >= rows.length) {
-						if (this.move_to_table(1)) {
-							to = 0;
-							rows = this.current_table_dom.rows;
-							continue;
-						} else {
-							scroll_to = 'bottom';
-						}
-					}
-				}*/
 
 				// hit the very top or bottom, make sure everything is visible
 				/*if (scroll_to) {
@@ -199,18 +178,6 @@
 
 			if (!cell && !flipped) {
 
-				// @TODO
-				/*if (this.loop_cell_selection) {
-					// if we hit the left/right boundries, stop or loop around
-					if (to < 0) {
-						to = (this.loop_cell_selection) ? cells.length - 1 : 0;
-						continue;
-					} else if (to >= cells.length) {
-						to = (this.loop_cell_selection) ? 0 : cells.length - 1;
-						continue;
-					}
-				}*/
-
 				// if we've hit the boundary of the table, 'flip' our way around and find the first selectable cell
 				if (index > 0 || to >= cells.length) {
 					index = -1;
@@ -312,6 +279,12 @@
 		return table.hasClass(opts.navigable_class);
 	}
 
+	function reset() {
+		unbind_handlers();
+		$('table.' + opts.navigable_class).removeClass(opts.navigable_class);
+		selected_row = selected_cell = selected_table = null;
+	}
+
 	$.tableNav = {
 		defaults: defaults,
 
@@ -328,8 +301,92 @@
 		select_row: select_row,
 
 		move_to_cell: move_to_cell,
-		select_cell: select_cell
+		select_cell: select_cell,
+
+		reset: reset
 	};
+
+	function click(event) {
+		var cell = $(event.currentTarget);
+		var row = cell.parent('tr');
+
+		if (selectable(row) && selectable(cell)) {
+			select_row(row);
+			select_cell(cell);
+		}
+	}
+
+	function _can_keydown(event) {
+		// don't do anything if there are modifiers down
+		if (event.shiftKey || event.ctrlKey || event.metaKey) {
+			return false;
+		}
+
+		// don't catch key presses when we're inside a form element in a non-navigable table
+		var target = $(event.target);
+		if (target.size() && target.is('input')) {
+			var parent_table = target.parents('table:first');
+			if (!navigable(parent_table)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	var keycodes = {
+		LEFT: 37,
+		RIGHT: 39,
+		UP: 38,
+		DOWN: 40,
+
+		PAGE_UP: 33,
+		PAGE_DOWN: 34
+	};
+
+	function _movement_keycode(keycode) {
+		keycode = parseInt(keycode);
+		return keycode == keycodes.LEFT || keycode == keycodes.RIGHT || keycode == keycodes.UP || keycode == keycodes.DOWN;
+	}
+
+	function keydown(event) {
+		var keycode = event.which;
+
+		if (!_can_keydown(event) || !_movement_keycode(keycode)) {
+			return true;
+		}
+
+		switch (keycode) {
+			case keycodes.LEFT:
+				move_to_cell(-1);
+				break;
+			case keycodes.RIGHT:
+				move_to_cell(1);
+				break;
+			case keycodes.UP:
+				move_to_row(-1);
+				break;
+			case keycodes.DOWN:
+				move_to_row(1);
+				break;
+		}
+
+		return false;
+	}
+
+	function bind_handlers() {
+		$('table.' + opts.navigable_class).delegate('td', 'click', function(event) {
+			click(event);
+		})
+
+		$(document).bind('keydown', function(event) {
+			return keydown(event);
+		});
+	}
+
+	function unbind_handlers() {
+		$('table.' + opts.navigable_class).undelegate('td', 'click');
+	}
 
 	$.fn.tableNav = function init(settings) {
 
@@ -347,6 +404,8 @@
 
 			_init_table(table);
 		});
+
+		bind_handlers();
 
 		select_table(first_table);
 

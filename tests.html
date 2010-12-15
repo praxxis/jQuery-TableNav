@@ -21,12 +21,12 @@ var TABLE = "<table id=\"example_table\"> \
 		<td>number</td> \
 		<td>1</td> \
 	</tr> \
-	<tr> \
+	<tr id=\"third_row\"> \
 		<td>Row</td> \
 		<td>number</td> \
 		<td>2</td> \
 	</tr> \
-	<tr> \
+	<tr id=\"fourth_row\"> \
 		<td>Row</td> \
 		<td>number</td> \
 		<td>3</td> \
@@ -37,11 +37,15 @@ $(function() {
 	function setup() {
 		this.table = $(TABLE);
 
+		$('#table_anchor').append(this.table);
+
 		this.table.tableNav();
 	}
 
 	function teardown() {
 		this.table.remove();
+		
+		$.tableNav.reset();
 	}
 
 	var defaults = {
@@ -63,8 +67,28 @@ $(function() {
 
 	test('First table, row and cell gets selected', function() {
 		equalDom($.tableNav.selected_table(), this.table);
-		equalDom($.tableNav.selected_row(), $('#first_row', this.table));
-		equalDom($.tableNav.selected_cell(), $('#first_cell', this.table));
+		equalDom($.tableNav.selected_row(), $('#first_row'));
+		equalDom($.tableNav.selected_cell(), $('#first_cell'));
+	});
+
+	///////////////////////////
+	module('Util functions', defaults);
+
+	test('Reset removes all TableNav stuff', function() {
+		$.tableNav.reset();
+
+		equal($.tableNav.selected_table(), null);
+		equal($.tableNav.selected_row(), null);
+		equal($.tableNav.selected_cell(), null);
+
+		ok(!$.tableNav.navigable(this.table));
+
+		// test event handlers
+		$('#fourth_cell').click();
+
+		equal($.tableNav.selected_table(), null);
+		equal($.tableNav.selected_row(), null);
+		equal($.tableNav.selected_cell(), null);		
 	});
 
 	///////////////////////////
@@ -78,45 +102,142 @@ $(function() {
 	module('Moving rows', defaults);
 
 	test('Row gets correct class', function() {
-		ok($('#first_row', this.table).hasClass('tn_selected_row'), 'row has selected class');
+		ok($('#first_row').hasClass('tn_selected_row'), 'row has selected class');
 	});
 
 	test('Move down one row then up one row', function() {
 		ok($.tableNav.move_to_row(1));
 
-		equalDom($.tableNav.selected_row(), $('#second_row', this.table), 'moved to second row');
+		equalDom($.tableNav.selected_row(), $('#second_row'), 'moved to second row');
 
 		// make sure our CSS styling has been removed from the previous row
 		ok(!$('#first_row', this.table).hasClass('tn_selected_row'), 'previous row no longer styled');
 
 		ok($.tableNav.move_to_row(-1));
 
-		equalDom($.tableNav.selected_row(), $('#first_row', this.table), 'moved back to first row');
+		equalDom($.tableNav.selected_row(), $('#first_row'), 'moved back to first row');
 	});
 
-	test('Moving up one row stays on same row', function() {
+	test('Table boundry: Moving up one row stays on same row', function() {
 		equal($.tableNav.move_to_row(-1), null);
-		equalDom($.tableNav.selected_row(), $('#first_row', this.table), 'stayed on first row');
+		equalDom($.tableNav.selected_row(), $('#first_row'), 'stayed on first row');
+	});
+
+	test('Table boundry: Cant move from the bottom of the table', function() {
+		$.tableNav.move_to_row(1);
+		$.tableNav.move_to_row(1);
+		$.tableNav.move_to_row(1);
+
+		equalDom($.tableNav.selected_row(), $('#fourth_row'), 'on last row');
+
+		$.tableNav.move_to_row(1);
+
+		equalDom($.tableNav.selected_row(), $('#fourth_row'), 'still on last row');
 	});
 
 	///////////////////////////
 	module('Moving cells', defaults);
 
 	test('Cell gets correct class', function() {
-		ok($('#first_cell', this.table).hasClass('tn_selected_cell'), 'cell has selected class');
+		ok($('#first_cell').hasClass('tn_selected_cell'), 'cell has selected class');
 	});
 
 	test('Move one cell right then one cell left', function() {
 		ok($.tableNav.move_to_cell(1));
 
-		equalDom($.tableNav.selected_cell(), $('#second_cell', this.table), 'moved to second cell');
+		equalDom($.tableNav.selected_cell(), $('#second_cell'), 'moved to second cell');
 
-		ok(!$('#first_cell', this.table).hasClass('tn_selected_cell'), 'previous cell no longer styled');
+		ok(!$('#first_cell').hasClass('tn_selected_cell'), 'previous cell no longer styled');
 
 		ok($.tableNav.move_to_cell(-1));
 
-		equalDom($.tableNav.selected_cell(), $('#first_cell', this.table), 'moved back to first cell');
+		equalDom($.tableNav.selected_cell(), $('#first_cell'), 'moved back to first cell');
 	});
+
+	test('Table boundry: Moving left stays on same cell', function() {
+		equal($.tableNav.move_to_cell(-1), null);
+		equalDom($.tableNav.selected_cell(), $('#first_cell'), 'stayed on same cell');
+	});
+
+	test('Table boundry: Cant move from far right of table', function() {
+		$.tableNav.move_to_cell(1);
+		$.tableNav.move_to_cell(1);
+
+		equalDom($.tableNav.selected_cell(), $('#third_cell'), 'at third cell');
+
+		$.tableNav.move_to_cell(1);
+
+		equalDom($.tableNav.selected_cell(), $('#third_cell'), 'still at third cell');
+	});
+
+	///////////////////////////
+	module('Toggling selectable elements', defaults);
+
+	test('Toggle unselectable row', function() {
+		$('#second_row').attr('selectable', false);
+
+		$.tableNav.move_to_row(1);
+
+		equalDom($.tableNav.selected_row(), $('#third_row'), 'unselectable row skipped');
+	});
+
+	test('Toggle unselectable cell', function() {
+		$('#second_cell').attr('selectable', false);
+
+		$.tableNav.move_to_cell(1);
+
+		equalDom($.tableNav.selected_cell(), $('#third_cell'), 'unselectable cell skipped');
+	});
+	
+	test('Unselectable table boundries', function() {
+		$.tableNav.reset();
+		
+		var boundry_table = "<table id=\"boundry_table\"> \
+			<thead> \
+				<tr id=\"first_row\" selectable=\"false\"> \
+					<td id=\"first_cell\">An</td> \
+					<td id=\"second_cell\">Example</td> \
+					<td id=\"third_cell\">Table</td> \
+				</tr> \
+			</thead> \
+			<tr id=\"second_row\"> \
+				<td id=\"fourth_cell\" selectable=\"false\">Row</td> \
+				<td id=\"fifth_cell\">number</td> \
+				<td>1</td> \
+			</tr> \
+		</table>";
+
+		boundry_table = $(boundry_table);
+
+		$('#table_anchor').append(boundry_table);
+
+		boundry_table.tableNav();
+
+		equalDom($.tableNav.selected_row(), $('#second_row', boundry_table), 'initialised in selectable row');
+		equalDom($.tableNav.selected_cell(), $('#fifth_cell', boundry_table), 'initialised in selectable cell');
+
+		$.tableNav.move_to_row(-1);
+
+		equalDom($.tableNav.selected_row(), $('#second_row', boundry_table), 'hit unselectable boundry and stayed in place');
+
+		$.tableNav.move_to_cell(-1);
+
+		equalDom($.tableNav.selected_cell(), $('#fifth_cell', boundry_table), 'hit unselectable boundry and stayed in place');
+
+		boundry_table.remove();
+	});
+
+	///////////////////////////
+	module('Event handling', defaults);
+
+	test('Clicking on cell in same table', function() {
+		$('#fourth_cell').click();
+
+		equalDom($.tableNav.selected_cell(), $('#fourth_cell'));
+		equalDom($.tableNav.selected_row(), $('#second_row'));
+	});
+
+
 })
 
 </script>
@@ -127,5 +248,7 @@ $(function() {
 	<h2 id="qunit-userAgent"></h2>
 	<ol id="qunit-tests">
 	</ol>
+
+	<div style="display: none;" id="table_anchor"></div>
 </body>
 </html>
