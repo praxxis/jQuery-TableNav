@@ -24,6 +24,10 @@
     background-color: green;
 }
 
+tr[selectable="false"] {
+	background-color: gray;
+}
+
 </style>
 
 <script type="text/javascript">
@@ -48,7 +52,7 @@ $(function() {
 				</tr>
 			</thead>
 			<tr>
-				<td>Row</td>
+				<td><input type="text"/></td>
 				<td><p>number</p></td>
 				<td>1</td>
 			</tr>
@@ -65,6 +69,14 @@ $(function() {
 		</table>
 
 	</div>
+	<br />
+	<table>
+		<tr>
+			<td><input type="text" /></td>
+		</tr>
+	</table>
+	<br />
+	<input type="button" value="Unbind!" onclick="$.tableNav.reset()" />
 
 	<footer>
 

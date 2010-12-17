@@ -18,7 +18,7 @@ var TABLE = "<table id=\"example_table\"> \
 	</thead> \
 	<tr id=\"second_row\"> \
 		<td id=\"fourth_cell\">Row</td> \
-		<td>number</td> \
+		<td id=\"fifth_cell\">number</td> \
 		<td>1</td> \
 	</tr> \
 	<tr id=\"third_row\"> \
@@ -58,6 +58,29 @@ $(function() {
 		equal(first.get(0), second.get(0), message);
 	}
 
+	function trigger_key(keyname) {
+		var key;
+
+		switch (keyname) {
+			case 'up':
+				key = 38;
+				break;
+			case 'down':
+				key = 40;
+				break;
+			case 'left':
+				key = 37;
+				break;
+			case 'right':
+				key = 39;
+				break;
+		}
+
+		var event = jQuery.Event("keydown");
+		event.which = key;
+		$(document).trigger(event);
+	}
+
 	///////////////////////////
 	module('Table decorater', defaults);
 
@@ -82,13 +105,6 @@ $(function() {
 		equal($.tableNav.selected_cell(), null);
 
 		ok(!$.tableNav.navigable(this.table));
-
-		// test event handlers
-		$('#fourth_cell').click();
-
-		equal($.tableNav.selected_table(), null);
-		equal($.tableNav.selected_row(), null);
-		equal($.tableNav.selected_cell(), null);		
 	});
 
 	///////////////////////////
@@ -171,6 +187,17 @@ $(function() {
 	});
 
 	///////////////////////////
+	module('Selecting cells', defaults);
+
+	test('Select cell by X/Y coords', function() {
+		ok($.tableNav.select_xy(1, 1));
+
+		equalDom($.tableNav.selected_cell(), $('#fifth_cell'), 'selected second cell on second row');
+
+		equal($.tableNav.select_xy(100, 100), false, 'cant select outside of table');
+	});
+
+	///////////////////////////
 	module('Toggling selectable elements', defaults);
 
 	test('Toggle unselectable row', function() {
@@ -236,6 +263,45 @@ $(function() {
 		equalDom($.tableNav.selected_cell(), $('#fourth_cell'));
 		equalDom($.tableNav.selected_row(), $('#second_row'));
 	});
+
+	test('Keyboard movement', function() {
+		trigger_key('right');
+
+		equalDom($.tableNav.selected_cell(), $('#second_cell'), 'moved to second cell');
+
+		trigger_key('left');
+
+		equalDom($.tableNav.selected_cell(), $('#first_cell'), 'moved to first cell');
+
+		trigger_key('down');
+
+		equalDom($.tableNav.selected_cell(), $('#fourth_cell'), 'stayed on first cell');
+		equalDom($.tableNav.selected_row(), $('#second_row'), 'moved to second row');
+
+		trigger_key('up');
+
+		equalDom($.tableNav.selected_cell(), $('#first_cell'), 'stayed on first cell');
+		equalDom($.tableNav.selected_row(), $('#first_row'), 'moved to first row');		
+	});
+
+	test('Reset removes event handlers', function() {
+		$.tableNav.reset();
+		
+		// test event handlers
+		$('#fourth_cell').click();
+
+		equal($.tableNav.selected_table(), null);
+		equal($.tableNav.selected_row(), null);
+		equal($.tableNav.selected_cell(), null);
+
+		var event = jQuery.Event("keydown");
+		event.keyCode = 39;
+		this.table.trigger(event);
+
+		equal($.tableNav.selected_table(), null);
+		equal($.tableNav.selected_row(), null);
+		equal($.tableNav.selected_cell(), null);		
+	})
 
 
 })

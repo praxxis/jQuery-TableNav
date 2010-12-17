@@ -19,9 +19,7 @@
 		selected_table,
 
 		previous_selected_cell,
-		previous_selected_row,
-
-		jump_tables_selection = true;
+		previous_selected_row;
 
 	function _init_table(table) {
 		table.toggleClass(opts.navigable_class, true);
@@ -35,6 +33,32 @@
 
 	function select_first() {
 		move_to_row(0);
+	}
+
+	function select_xy(x, y) {
+		var row = selected_table.get(0).rows[y];
+
+		if (!row) {
+			return false;
+		}
+
+		var cell = row.cells[x];
+
+		if (!cell) {
+			return false;
+		}
+
+		row = $(row);
+		cell = $(cell);
+
+		if (selectable(row) && selectable(cell)) {
+			select_row(row);
+			select_cell(cell);
+
+			return true;
+		}
+
+		return false;
 	}
 
 	function current_row_index() {
@@ -248,11 +272,6 @@
 
 		selected_cell.toggleClass(opts.selected_cell_class, true);
 
-		// @TODO event
-
-		// @TODO
-		//scrollToIfNeccessary(this.current_cell_dom);
-
 		return true;
 	}
 
@@ -296,6 +315,7 @@
 		navigable: navigable,
 
 		selectable: selectable,
+		select_xy: select_xy,
 
 		move_to_row: move_to_row,
 		select_row: select_row,
@@ -322,11 +342,25 @@
 			return false;
 		}
 
-		// don't catch key presses when we're inside a form element in a non-navigable table
 		var target = $(event.target);
-		if (target.size() && target.is('input')) {
-			var parent_table = target.parents('table:first');
-			if (!navigable(parent_table)) {
+
+		// don't intercept if we have no element focused
+		if (!target.is('html') && target.get(0) != document) {
+			// don't intercept if we're not keydowning in an element inside a navigable table
+
+			// if we're not in a table at all, then dont intercept the keydown
+			var parents = target.parents('table');
+
+			if (parents.size() === 0) {
+				return false;
+			}
+
+			// if we're in a table but its not navigable, dont intercept the keydown
+			parents = parents.filter(function() {
+				return navigable($(this));
+			});
+
+			if (parents.size() === 0) {
 				return false;
 			}
 		}
@@ -377,20 +411,19 @@
 	function bind_handlers() {
 		$('table.' + opts.navigable_class).delegate('td', 'click', function(event) {
 			click(event);
-		})
-
-		$(document).bind('keydown', function(event) {
-			return keydown(event);
 		});
+
+		$(document).bind('keydown', keydown);
 	}
 
 	function unbind_handlers() {
 		$('table.' + opts.navigable_class).undelegate('td', 'click');
+		$(document).unbind('keydown', keydown);
 	}
 
 	$.fn.tableNav = function init(settings) {
 
-		// @TODO: work out the pesudosingleton nature of these settings
+		// @TODO: the pesudosingleton nature of these settings consistent
 		opts = $.extend({}, defaults, settings);
 
 		var first_table = null;
