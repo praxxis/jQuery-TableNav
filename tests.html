@@ -105,6 +105,10 @@ $(function() {
 		equal($.tableNav.selected_cell(), null);
 
 		ok(!$.tableNav.navigable(this.table));
+
+		equal(this.table.hasClass('tn_selected_table'), false, 'selected styling is removed on table');
+		equal($('#first_row').hasClass('tn_selected_row'), false, 'selected styling is removed on row');
+		equal($('#first_cell').hasClass('tn_selected_cel'), false, 'selected styling is removed on cell');
 	});
 
 	///////////////////////////
@@ -112,6 +116,12 @@ $(function() {
 
 	test('Table gets correct class', function() {
 		ok(this.table.hasClass('tn_selected_table'), 'table has selected class');
+	});
+
+	test('Cant select non-navigable table', function() {
+		var table = $('<table id="faketable"></table>');
+
+		equal($.tableNav.select_table(table), false);
 	});
 
 	///////////////////////////

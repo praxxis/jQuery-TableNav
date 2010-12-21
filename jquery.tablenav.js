@@ -1,9 +1,24 @@
 /**
+ * An early stage/proof of concept implementation of a spreadsheet like control based on tables.
+ *
+ * This implementation was originally conceived before the advent of the fast JavaScript engines that we take for
+ * granted today. We needed to scale to a large amount of rows and columns, and creating that many elements purely
+ * in JS was exceptionally sluggish. It was decided instead to rely on the internals of the HTML table element, which, by
+ * stroke of luck, exposes native `rows` and a `cells` properties. Its child elements, tr and td, also expose coordinate
+ * information on where they lie in the table, via `rowIndex` and `cellIndex` respectively.
+ *
+ * Using native methods, along with the inherit speed in rendering a simple table at the time, meant that we could scale
+ * our grid to thousands of rows and columns while maintaining constant performance.
+ *
  * @TODO:
  *  - events on table/row/cell selection
  */
 (function($) {
-	var defaults = {
+	var
+		/**
+		 * @var object Default settings for the plugin.
+		 */
+		defaults = {
 			navigable_class: 'tn_navigable',
 		
 			selectable_attribute: 'selectable',
@@ -12,29 +27,71 @@
 			selected_cell_class: 'tn_selected_cell',
 			selected_row_class: 'tn_selected_row'
 		},
+		/**
+		 * @var object A mixin of the default plugin settings and any user supplied overrides.
+		 */
 		opts,
 
+		/**
+		 * @var jQuery A reference to the currently selected row in the table, as a jQuery object.
+		 */
 		selected_row,
+
+		/**
+		 * @var jQuery A reference to the currently selected cell, as a jQuery object.
+		 */
 		selected_cell,
+
+		/**
+		 * @var jQuery A reference to the active table, as a jQuery object.
+		 */
 		selected_table,
 
+		/**
+		 * @var jQuery The last selected cell. Used as a reference to allow us to remove style infromation.
+		 */
 		previous_selected_cell,
+
+		/**
+		 * @var jQuery As above, for the last selected row.
+		 */
 		previous_selected_row;
 
+	/**
+	 * @param table
+	 */
 	function _init_table(table) {
 		table.toggleClass(opts.navigable_class, true);
 	}
 
+	/**
+	 * @param table jQuery object
+	 */
 	function select_table(table) {
+		if (!navigable(table)) {
+			return false;
+		}
+
 		selected_table = table;
 
 		table.toggleClass(opts.selected_table_class, true);
+
+		return true;
 	}
 
+	/**
+	 * Select the first row in the currently selected table
+	 */
 	function select_first() {
 		move_to_row(0);
 	}
 
+	/**
+	 * Select a cell in the selected table by its x/y coordinates.
+	 * Note that coordinates are **0 indexed**. That is, y=0,x=0 is the first cell in the table.
+	 * @param x Horizontal position
+	 * @param y Vertical position
+	 */
 	function select_xy(x, y) {
 		var row = selected_table.get(0).rows[y];
 
@@ -61,10 +118,20 @@
 		return false;
 	}
 
+	/**
+	 * Return the y coordinate of the currently selected row.
+	 * Note that indexes start at **0**.
+	 * @return int
+	 */
 	function current_row_index() {
 		return selected_row.get(0).rowIndex;
 	}
 
+	/**
+	 * Move **index** number of rows up or down the active table. Moves to the first selectable cell once a row is found.
+	 * @param index A positive number to move that many rows down, a negative number to move up.
+	 * @return bool|null
+	 */
 	function move_to_row(index) {
 
 		var to,
@@ -76,6 +143,7 @@
 			row,
 			rows = selected_table.get(0).rows;
 
+		// @TODO: replace try/catch with proper error handling
 		try {
 			to = current_row_index() + index;
 		} catch(e) {
@@ -87,6 +155,7 @@
 			to = 0;
 		}
 
+		// we set a hard limit here to stop edge cases such as a table where **every** row is unselectable.
 		while (trying < 300) {
 			try {
 				row = rows[to];
@@ -94,15 +163,11 @@
 				row = null;
 			}
 
-			// out of bounds? flip around and try and find the first accessible row... used when we page up and we're < 20 lines down
+			// no row: out of bounds?
+			// flip around and try and find the first accessible row... used when we page up and we're < 20 lines down
 			if (!row && !flipped) {
 
-				// hit the very top or bottom, make sure everything is visible
-				/*if (scroll_to) {
-					this.scroll_to(scroll_to);
-				}*/
-
-				// if we've hit the boundary of the table, 'flip' our way around and find the first selectable row
+				// if we've hit the edge of the table, 'flip' our way around and find the first selectable row
 				if (index > 0) {
 					index = -1;
 				} else {
@@ -130,11 +195,11 @@
 				continue;
 			}
 
-			// we've got our row by here, break out
+			// we've got our row by now, break out
 			break;
 		}
 
-		// to stop infinite loops (which should  never actually happen, but HTML can be badly formed...) only try a set
+		// to stop infinite loops (which should  never actually happen, but HTML can be badly formed, etc) only try a set
 		// number of times to alter the row we're in
 		if (trying >= 300) {
 			return false;
@@ -154,6 +219,10 @@
 		return true;
 	}
 
+	/**
+	 * Select a row directly, by passing a jQuery wrapped reference to the tr element.
+	 * @param row
+	 */
 	function select_row(row) {
 		if (selected_row && row.get(0) == selected_row.get(0)) {
 			return null;
@@ -173,10 +242,20 @@
 		return true;
 	}
 
+	/**
+	 * Return the x coordinate of the currently selected cell.
+	 * Note that indexes start at **0**.
+	 * @return int
+	 */
 	function current_cell_index() {
 		return selected_cell.get(0).cellIndex;
 	}
 
+	/**
+	 * Move **index** number of cells left or right along the active table.
+	 * @param index A positive number to move that many cells right, a negative number to move left.
+	 * @return bool|null
+	 */
 	function move_to_cell(index) {
 		var to,
 
@@ -202,7 +281,7 @@
 
 			if (!cell && !flipped) {
 
-				// if we've hit the boundary of the table, 'flip' our way around and find the first selectable cell
+				// if we've hit the edge of the table, 'flip' our way around and find the first selectable cell
 				if (index > 0 || to >= cells.length) {
 					index = -1;
 				} else {
@@ -249,6 +328,10 @@
 		return true;
 	}
 
+	/**
+	 * Select a cell directly by passing a jQuery wrapped td.
+	 * @param cell
+	 */
 	function select_cell(cell) {
 		// if we're selecting the same cell, we've nothing to do
 		if (selected_cell && cell.get(0) == selected_cell.get(0)) {
@@ -275,6 +358,11 @@
 		return true;
 	}
 
+	/**
+	 * Return whether an element is able to be selected. A un-selectable item will be skipped when trying to move to it.
+	 * @param element
+	 * @return bool
+	 */
 	function selectable(element) {
 
 		if (!element) {
@@ -285,6 +373,7 @@
 			return false;
 		}
 
+		// find the table that this element resides in and make sure it can be navigated to.
 		var parent_table = element.parents('table:first');
 
 		if (!navigable(parent_table)) {
@@ -294,16 +383,41 @@
 		return true;
 	}
 
+	/**
+	 * Whether a table can be navigated to, via direct selection or moving cells/rows.
+	 * @param table
+	 * @return bool
+	 */
 	function navigable(table) {
 		return table.hasClass(opts.navigable_class);
 	}
 
+	/**
+	 * Reset and remove any tableNav references and events.
+	 */
 	function reset() {
 		unbind_handlers();
+
 		$('table.' + opts.navigable_class).removeClass(opts.navigable_class);
+
+		if (selected_row) {
+			selected_row.removeClass(opts.selected_row_class);
+		}
+
+		if (selected_cell) {
+			selected_cell.removeClass(opts.selected_cell_class);
+		}
+
+		if (selected_table) {
+			selected_table.removeClass(opts.selected_table_class);
+		}
+		
 		selected_row = selected_cell = selected_table = null;
 	}
 
+	/**
+	 * Publicly exposed methods
+	 */
 	$.tableNav = {
 		defaults: defaults,
 
@@ -326,6 +440,10 @@
 		reset: reset
 	};
 
+	/**
+	 * Event handler called on clicking a navigable table cell/row
+	 * @param event
+	 */
 	function click(event) {
 		var cell = $(event.currentTarget);
 		var row = cell.parent('tr');
@@ -336,6 +454,10 @@
 		}
 	}
 
+	/**
+	 * Return whether the keydown event was performed on a navigable item.
+	 * @param event
+	 */
 	function _can_keydown(event) {
 		// don't do anything if there are modifiers down
 		if (event.shiftKey || event.ctrlKey || event.metaKey) {
@@ -348,14 +470,14 @@
 		if (!target.is('html') && target.get(0) != document) {
 			// don't intercept if we're not keydowning in an element inside a navigable table
 
-			// if we're not in a table at all, then dont intercept the keydown
+			// if we're not in a table at all, then don't intercept the keydown
 			var parents = target.parents('table');
 
 			if (parents.size() === 0) {
 				return false;
 			}
 
-			// if we're in a table but its not navigable, dont intercept the keydown
+			// if we're in a table but its not navigable, don't intercept the keydown
 			parents = parents.filter(function() {
 				return navigable($(this));
 			});
@@ -378,14 +500,22 @@
 		PAGE_DOWN: 34
 	};
 
+	/**
+	 * @param keycode
+	 * @return bool
+	 */
 	function _movement_keycode(keycode) {
 		keycode = parseInt(keycode);
 		return keycode == keycodes.LEFT || keycode == keycodes.RIGHT || keycode == keycodes.UP || keycode == keycodes.DOWN;
 	}
 
+	/**
+	 * Event handler called on key down.
+	 * @param event
+	 */
 	function keydown(event) {
 		var keycode = event.which;
-
+		
 		if (!_can_keydown(event) || !_movement_keycode(keycode)) {
 			return true;
 		}
@@ -421,11 +551,16 @@
 		$(document).unbind('keydown', keydown);
 	}
 
+	/**
+	 * jQuery decorator function.
+	 * @param settings
+	 */
 	$.fn.tableNav = function init(settings) {
 
 		// @TODO: the pesudosingleton nature of these settings consistent
 		opts = $.extend({}, defaults, settings);
 
+		// keep a reference to the first table so we can select it later
 		var first_table = null;
 
  		this.each(function() {
@@ -446,4 +581,5 @@
 
 		return this;
 	}
+
 })(jQuery);
